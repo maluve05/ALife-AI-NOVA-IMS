@@ -1,51 +1,39 @@
-"""
-game.py
-
-The Director.
-Entry point of the application. Manages high-level execution loops, Pygame initialization,
-user interaction, logging, serialization/loading, and the graphics dashboard.
-"""
 import os
 import sys
 import json
 import csv
 import pygame
 import random
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 
-# Add the parent directory to sys.path at index 0 to override built-in code module
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from code.world import World
 from code.prey import Prey
 from code.predator import Predator
 from code.food import Food
+from code.graphics import SimulationGraphics
 
-# Global default parameter configurations
 DEFAULT_PARAMETERS: Dict[str, Any] = {
-    "INITIAL_ENERGY_PREY": 100,
+    "INITIAL_ENERGY_PREY": 150,
     "MUTATION_RATE": 0.05,
-    "P_REPRODUCTION": 0.50,
-    "INITIAL_PREY_COUNT": 75,
-    "INITIAL_PREDATOR_COUNT": 25,
+    "P_REPRODUCTION": 0.75,
+    "INITIAL_PREY_COUNT": 30,
+    "INITIAL_PREDATOR_COUNT": 5,
     "MAX_PREY_POPULATION": 300,
-    "ENERGY_FROM_CONSUMING_FOOD": 40,
+    "ENERGY_FROM_CONSUMING_FOOD": 60,
     "ENERGY_FROM_PREDATOR_CATCH": 10,
     "ENERGY_REPRODUCTION_COST": 3,
     "GENERATIONAL_DECAY": 1,
     "FRAME_RATE_LIMIT": 1.0,
     "LOGGING_INTERVAL": 15,
-    "GRID_WIDTH": 15,
-    "GRID_HEIGHT": 20,
+    "GRID_WIDTH": 20,
+    "GRID_HEIGHT": 25,
     "PREY_NAME": "Zizoid",
     "PREDATOR_NAME": "Wsiloid"
 }
 
 def boot_menu() -> Tuple[World, Dict[str, Any], int]:
-    """
-    Runs the blocking CLI configuration handshake in the console before starting Pygame.
-    Returns (World instance, parameters dict, current_tick_offset)
-    """
     print("============================================================")
     print("       ARTIFICIAL LIFE ENVIRONMENT SIMULATION ENGINE")
     print("============================================================")
@@ -58,7 +46,6 @@ def boot_menu() -> Tuple[World, Dict[str, Any], int]:
         try:
             choice = input("Select boot option (1-3): ").strip()
             if choice == "1":
-                # Option 1: Load state
                 file_path = input("Enter JSON state file path (e.g. simulation_state.json): ").strip()
                 if not os.path.exists(file_path):
                     print(f"Error: File '{file_path}' not found. Try again.")
@@ -70,13 +57,16 @@ def boot_menu() -> Tuple[World, Dict[str, Any], int]:
                 cols = params.get("GRID_WIDTH", 15)
                 rows = params.get("GRID_HEIGHT", 20)
                 
-                # Reconstruct world
                 world = World(cols, rows, params)
                 world.prey_list.clear()
                 world.predator_list.clear()
                 world.food_list.clear()
                 
-                # Re-load Prey
+                world.best_prey_ever = state_data.get("best_prey_ever", None)
+                world.best_predator_ever = state_data.get("best_predator_ever", None)
+                world.best_mating_pair_ever = state_data.get("best_mating_pair_ever", None)
+                world.death_causes = state_data.get("death_causes", {"Starvation": 0, "Old Age": 0, "Predation": 0})
+                
                 world.next_prey_id = state_data.get("next_prey_id", 1)
                 for p_data in state_data.get("prey", []):
                     p = Prey(p_data["id"], p_data["name"], p_data["x"], p_data["y"], p_data["chromosome"])
@@ -89,7 +79,6 @@ def boot_menu() -> Tuple[World, Dict[str, Any], int]:
                     p.successful_offspring = p_data.get("successful_offspring", 0)
                     world.prey_list.append(p)
                     
-                # Re-load Predators
                 world.next_predator_id = state_data.get("next_predator_id", 1)
                 for pred_data in state_data.get("predators", []):
                     pred = Predator(pred_data["id"], pred_data["name"], pred_data["x"], pred_data["y"])
@@ -98,12 +87,12 @@ def boot_menu() -> Tuple[World, Dict[str, Any], int]:
                     pred.tracking_efficiency = pred_data.get("tracking_efficiency", 50.0)
                     pred.last_jumped = pred_data.get("last_jumped", False)
                     pred.chase_state = pred_data.get("chase_state", False)
+                    pred.catches = pred_data.get("catches", 0)
                     world.predator_list.append(pred)
                     
-                # Re-load Food
                 for f_data in state_data.get("food", []):
                     f_obj = Food(f_data["x"], f_data["y"], params.get("ENERGY_FROM_CONSUMING_FOOD", 40.0))
-                    f_obj.ticks_unstepped = f_data.get("ticks_unstepped", 3)
+                    f_obj.ticks_unstepped = f_data.get("ticks_unstepped", 10)
                     world.food_list.append(f_obj)
                     
                 world.sync_grid()
@@ -112,18 +101,15 @@ def boot_menu() -> Tuple[World, Dict[str, Any], int]:
                 return world, params, tick_offset
                 
             elif choice == "2":
-                # Option 2: Default configuration
-                print("Starting default simulation (15x20 grid, 75 Zizoids, 25 Wsiloids)...")
+                print("Starting default simulation (20x25 grid, 30 Zizoids, 5 Wsiloids)...")
                 params = DEFAULT_PARAMETERS.copy()
-                world = World(15, 20, params)
+                world = World(params["GRID_WIDTH"], params["GRID_HEIGHT"], params)
                 return world, params, 0
                 
             elif choice == "3":
-                # Option 3: Modify Parameters
                 params = DEFAULT_PARAMETERS.copy()
                 print("\n--- Custom Parameter Handshake ---")
                 
-                # Grid sizing validation gate
                 while True:
                     try:
                         width = int(input("Enter Grid Width (default 15): ") or "15")
@@ -138,52 +124,40 @@ def boot_menu() -> Tuple[World, Dict[str, Any], int]:
                     except ValueError:
                         print("Invalid input. Please enter integers.")
                 
-                # Custom entity naming
                 params["PREY_NAME"] = input("Enter name for Prey (default: Zizoid): ").strip() or "Zizoid"
                 params["PREDATOR_NAME"] = input("Enter name for Predator (default: Wsiloid): ").strip() or "Wsiloid"
                 
-                # Attribute tweaks
                 try:
-                    params["INITIAL_ENERGY_PREY"] = float(input("Enter starting Prey energy (default 100): ") or "100")
-                    params["ENERGY_FROM_CONSUMING_FOOD"] = float(input("Enter Food energy value (default 40): ") or "40")
+                    params["INITIAL_ENERGY_PREY"] = float(input("Enter starting Prey (Zizoid) energy (default 100): ") or "100")
                     params["MUTATION_RATE"] = float(input("Enter Mutation Rate (0.0 to 1.0, default 0.05): ") or "0.05")
+                    params["P_REPRODUCTION"] = float(input("Enter Prob(reproduction) (0.0 to 1.0, default 0.50): ") or "0.50")
+                    params["ENERGY_FROM_PREDATOR_CATCH"] = float(input("Enter Predator catch energy reward (default 10): ") or "10")
+                    params["ENERGY_REPRODUCTION_COST"] = float(input("Enter energy cost factor spent on reproduction (default 3): ") or "3")
+                    params["MAX_PREY_POPULATION"] = int(input("Enter maximum number of Prey (default 300): ") or "300")
+                    params["ENERGY_FROM_CONSUMING_FOOD"] = float(input("Enter Food energy value (default 40): ") or "40")
                     params["FRAME_RATE_LIMIT"] = float(input("Enter initial speed in FPS (default 1.0): ") or "1.0")
                 except ValueError:
-                    print("Invalid value entered. Reverting parameters to baseline defaults.")
+                    print("Invalid value entered. Reverting attributes to defaults.")
                 
-                # Custom ratio input
-                ratio_str = input("Enter starting Predator-to-Prey ratio (default 1:3): ").strip() or "1:3"
-                try:
-                    parts = ratio_str.split(':')
-                    ratio_pred = int(parts[0])
-                    ratio_prey = int(parts[1])
-                    if ratio_pred <= 0 or ratio_prey <= 0:
-                        raise ValueError()
-                except (ValueError, IndexError):
-                    print("Invalid ratio format. Reverting to default 1:3.")
-                    ratio_pred, ratio_prey = 1, 3
-                
-                # Capacity limits
                 total_cells = params["GRID_WIDTH"] * params["GRID_HEIGHT"]
                 max_agents = total_cells // 3
-                
-                # Compute count using ratio
-                total_ratio_units = ratio_pred + ratio_prey
-                unit_count = max_agents // total_ratio_units
-                pred_count = unit_count * ratio_pred
-                prey_count = unit_count * ratio_prey
-                
-                # Fallback if unit count is zero
-                if pred_count == 0 or prey_count == 0:
-                    print("Ratio scale too large for grid capacity. Reverting to default 1:3 counts.")
-                    pred_count = max_agents // 4
-                    prey_count = pred_count * 3
-                    ratio_pred, ratio_prey = 1, 3
-                
-                params["INITIAL_PREY_COUNT"] = prey_count
-                params["INITIAL_PREDATOR_COUNT"] = pred_count
-                
-                print(f"Calculated starting population (ratio {ratio_pred}:{ratio_prey}): {prey_count} {params['PREY_NAME']}s, {pred_count} {params['PREDATOR_NAME']}s.")
+                print(f"Starting Populations configuration (Note: Predators + Prey <= {max_agents} agents total):")
+                while True:
+                    try:
+                        prey_count = int(input(f"Enter initial number of {params['PREY_NAME']}s (default 30): ") or "30")
+                        pred_count = int(input(f"Enter initial number of {params['PREDATOR_NAME']}s (default 5): ") or "5")
+                        total_agents = prey_count + pred_count
+                        if total_agents > max_agents:
+                            print(f"Error: Total agents ({total_agents}) exceeds maximum capacity of {max_agents} for the grid. Re-enter.")
+                            continue
+                        if prey_count <= 0 or pred_count <= 0:
+                            print("Error: Starting populations must be greater than zero. Re-enter.")
+                            continue
+                        params["INITIAL_PREY_COUNT"] = prey_count
+                        params["INITIAL_PREDATOR_COUNT"] = pred_count
+                        break
+                    except ValueError:
+                        print("Invalid input. Please enter integers.")
                 
                 world = World(params["GRID_WIDTH"], params["GRID_HEIGHT"], params)
                 return world, params, 0
@@ -193,12 +167,15 @@ def boot_menu() -> Tuple[World, Dict[str, Any], int]:
             print(f"Error handling menu setup: {e}. Try again.")
 
 def save_state_to_json(world: World, params: Dict[str, Any], tick: int, file_path: str = "simulation_state.json"):
-    """Serializes the complete simulation state to JSON to enable exact resume loading."""
     state = {
         "current_tick": tick,
         "next_prey_id": world.next_prey_id,
         "next_predator_id": world.next_predator_id,
         "parameters": params,
+        "best_prey_ever": world.best_prey_ever,
+        "best_predator_ever": world.best_predator_ever,
+        "best_mating_pair_ever": world.best_mating_pair_ever,
+        "death_causes": world.death_causes,
         "prey": [
             {
                 "id": p.id,
@@ -225,7 +202,8 @@ def save_state_to_json(world: World, params: Dict[str, Any], tick: int, file_pat
                 "age": pred.age,
                 "tracking_efficiency": pred.tracking_efficiency,
                 "last_jumped": pred.last_jumped,
-                "chase_state": pred.chase_state
+                "chase_state": pred.chase_state,
+                "catches": pred.catches
             } for pred in world.predator_list
         ],
         "food": [
@@ -240,17 +218,12 @@ def save_state_to_json(world: World, params: Dict[str, Any], tick: int, file_pat
         json.dump(state, f, indent=2)
 
 def log_to_csv(tick: int, world: World, params: Dict[str, Any], file_path: str = "simulation_1.csv"):
-    """
-    Appends simulation state logs, population records, and elite Zizoid chromosomes to simulation_1.csv.
-    """
     file_exists = os.path.exists(file_path)
     
-    # Calculate averages
     avg_energy = sum(p.energy for p in world.prey_list) / max(1, len(world.prey_list))
     avg_intel = sum(p.get_intelligence() for p in world.prey_list) / max(1, len(world.prey_list))
     avg_eff = sum(p.get_efficiency() for p in world.prey_list) / max(1, len(world.prey_list))
     
-    # Find elite chromosome
     elite_chromo = []
     if world.prey_list:
         elite = max(world.prey_list, key=lambda p: p.age)
@@ -264,13 +237,12 @@ def log_to_csv(tick: int, world: World, params: Dict[str, Any], file_path: str =
         round(avg_energy, 2),
         round(avg_intel, 2),
         round(avg_eff, 2),
-        json.dumps(elite_chromo)  # Serialize chromosome cleanly
+        json.dumps(elite_chromo)
     ]
     
     with open(file_path, 'a', newline='') as f:
         writer = csv.writer(f)
         if not file_exists:
-            # Write header
             writer.writerow([
                 "Tick", "PreyCount", "PredatorCount", "FoodCount", 
                 "AvgEnergy", "AvgIntelligence", "AvgEfficiency", "EliteChromosome"
@@ -278,32 +250,11 @@ def log_to_csv(tick: int, world: World, params: Dict[str, Any], file_path: str =
         writer.writerow(row)
 
 def main():
-    # 1. Run Boot sequence configuration CLI
     world, params, tick = boot_menu()
     
-    # 2. Pygame Screen initialization
-    pygame.init()
-    pygame.display.set_caption("Artificial Life Simulation Dashboard")
-    
-    # Screen details
-    cell_size = 30
-    grid_width_pixels = world.cols * cell_size
-    grid_height_pixels = world.rows * cell_size
-    
-    # Total screen width is Left Panel (grid) + Right Panel (dashboard)
-    screen_width = grid_width_pixels + 450
-    screen_height = max(grid_height_pixels, 600)
-    
-    screen = pygame.display.set_mode((screen_width, screen_height))
+    graphics = SimulationGraphics(world.cols, world.rows, params)
     clock = pygame.time.Clock()
     
-    # Setup fonts
-    font_title = pygame.font.SysFont("Outfit", 24, bold=True)
-    font_header = pygame.font.SysFont("Outfit", 18, bold=True)
-    font_body = pygame.font.SysFont("Courier New", 14)
-    font_bold = pygame.font.SysFont("Courier New", 14, bold=True)
-    
-    # Population history for graphing
     history_prey: List[int] = []
     history_predator: List[int] = []
     history_food: List[int] = []
@@ -314,7 +265,7 @@ def main():
     paused = False
     extinct = False
     
-    print(f"\nSimulation graphics loaded successfully! Window resolution: {screen_width}x{screen_height} px.")
+    print(f"\nSimulation graphics loaded successfully! Window resolution: {graphics.screen_width}x{graphics.screen_height} px.")
     print("Controls:")
     print("  [SPACE] - Pause/Play simulation execution.")
     print("  [UP Arrow] - Speed up simulation frame rate.")
@@ -322,9 +273,7 @@ def main():
     print("  [S] - Save current simulation state immediately.")
     print("  [ESC] - Quit simulation.")
     
-    # Main simulation loop
     while running:
-        # Handle keyboard/mouse clock velocity scaling & commands
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -344,7 +293,6 @@ def main():
                     save_state_to_json(world, params, tick)
                     print(f"Simulation state checkpoint saved at tick {tick}.")
                     
-        # Check Extinction termination gate
         if len(world.prey_list) == 0 and not extinct:
             extinct = True
             print("\n============================================================")
@@ -353,14 +301,11 @@ def main():
             print(f"Final Tick Duration: {tick} Epochs")
             print("Shutting down simulation environment updates.")
             print("============================================================")
-
+            
         if not paused and not extinct:
-                
-            # Perform simulation stage tick
             world.update()
             tick += 1
             
-            # Record historical parameters
             history_prey.append(len(world.prey_list))
             history_predator.append(len(world.predator_list))
             history_food.append(len(world.food_list))
@@ -369,170 +314,15 @@ def main():
                 history_predator.pop(0)
                 history_food.pop(0)
                 
-            # Logging interval trigger
             if tick % params.get("LOGGING_INTERVAL", 15) == 0:
                 log_to_csv(tick, world, params)
                 save_state_to_json(world, params, tick)
-
-        # -------------------------------------------------------------
-        # DRAWING ROUTINES
-        # -------------------------------------------------------------
-        # 1. Clear Screen (Charcoal black background)
-        screen.fill((18, 18, 18))
-        
-        # 2. Render Left Panel (Environment Grid)
-        for y in range(world.rows):
-            for x in range(world.cols):
-                rect = pygame.Rect(x * cell_size, y * cell_size, cell_size, cell_size)
-                pygame.draw.rect(screen, (30, 30, 30), rect, 1)  # Grid border
                 
-                val = world.grid[y][x]
-                if val == 1:  # Predator ( Crimson Red )
-                    pygame.draw.ellipse(screen, (255, 59, 48), rect.inflate(-4, -4))
-                elif val == 2:  # Food ( Forest Green compounding )
-                    # Find food instance to get ticks_unstepped
-                    food_instance = next((f for f in world.food_list if f.x == x and f.y == y), None)
-                    green_val = min(255, 100 + (food_instance.ticks_unstepped * 10) if food_instance else 100)
-                    pygame.draw.rect(screen, (52, green_val, 89), rect.inflate(-6, -6))
-                elif val == 3:  # Prey ( Electric Blue with direction arrow )
-                    prey_instance = next((p for p in world.prey_list if p.x == x and p.y == y), None)
-                    pygame.draw.ellipse(screen, (10, 132, 255), rect.inflate(-4, -4))
-                    if prey_instance:
-                        # Draw orient arrow: line from center to edge
-                        cx = x * cell_size + cell_size // 2
-                        cy = y * cell_size + cell_size // 2
-                        if prey_instance.orientation == 0:    # North
-                            end_pos = (cx, cy - cell_size // 3)
-                        elif prey_instance.orientation == 1:  # East
-                            end_pos = (cx + cell_size // 3, cy)
-                        elif prey_instance.orientation == 2:  # South
-                            end_pos = (cx, cy + cell_size // 3)
-                        else:                                  # West
-                            end_pos = (cx - cell_size // 3, cy)
-                        pygame.draw.line(screen, (255, 255, 255), (cx, cy), end_pos, 2)
-                        
-        # Draw Panel separator line
-        pygame.draw.line(screen, (44, 44, 46), (grid_width_pixels, 0), (grid_width_pixels, screen_height), 2)
-        
-        # 3. Render Right Panel (Real-Time Simulation Dashboard)
-        rx_offset = grid_width_pixels + 20
-        ry_offset = 20
-        
-        # Dashboard Title
-        title_surf = font_title.render("ALIFE SIMULATION DASHBOARD", True, (255, 255, 255))
-        screen.blit(title_surf, (rx_offset, ry_offset))
-        ry_offset += 40
-        
-        # [STATS MONITOR]
-        pygame.draw.line(screen, (44, 44, 46), (rx_offset, ry_offset), (screen_width - 20, ry_offset), 1)
-        ry_offset += 10
-        screen.blit(font_header.render("[STATS MONITOR]", True, (142, 142, 147)), (rx_offset, ry_offset))
-        ry_offset += 25
-        
-        # Print active headcounts
-        headcounts_str = f"Tick: {tick:<8} FPS Limit: {fps:.1f}"
-        screen.blit(font_body.render(headcounts_str, True, (255, 255, 255)), (rx_offset, ry_offset))
-        ry_offset += 20
-        
-        pop_str = f"{params['PREY_NAME']}s: {len(world.prey_list):<6} {params['PREDATOR_NAME']}s: {len(world.predator_list):<6} Food: {len(world.food_list)}"
-        screen.blit(font_body.render(pop_str, True, (255, 255, 255)), (rx_offset, ry_offset))
-        ry_offset += 30
-        
-        # [FITNESS BREAKDOWN]
-        pygame.draw.line(screen, (44, 44, 46), (rx_offset, ry_offset), (screen_width - 20, ry_offset), 1)
-        ry_offset += 10
-        screen.blit(font_header.render("[FITNESS BREAKDOWN (AGE)]", True, (142, 142, 147)), (rx_offset, ry_offset))
-        ry_offset += 25
-        
-        # Rank by age/lifespan
-        if world.prey_list:
-            ages = sorted([p.age for p in world.prey_list])
-            worst_age = ages[0]
-            median_age = ages[len(ages) // 2]
-            elite_age = ages[-1]
-            
-            # Rank average traits
-            avg_energy = sum(p.energy for p in world.prey_list) / len(world.prey_list)
-            avg_intel = sum(p.get_intelligence() for p in world.prey_list) / len(world.prey_list)
-            avg_eff = sum(p.get_efficiency() for p in world.prey_list) / len(world.prey_list)
-        else:
-            worst_age = median_age = elite_age = 0
-            avg_energy = avg_intel = avg_eff = 0
-            
-        screen.blit(font_body.render(f"Elite Score (Max Age): {elite_age} Ticks", True, (10, 132, 255)), (rx_offset, ry_offset))
-        ry_offset += 20
-        screen.blit(font_body.render(f"Median Score: {median_age} Ticks", True, (255, 255, 255)), (rx_offset, ry_offset))
-        ry_offset += 20
-        screen.blit(font_body.render(f"Worst Score: {worst_age} Ticks", True, (255, 59, 48)), (rx_offset, ry_offset))
-        ry_offset += 30
-        
-        # [GLOBAL TRAITS MONITOR]
-        pygame.draw.line(screen, (44, 44, 46), (rx_offset, ry_offset), (screen_width - 20, ry_offset), 1)
-        ry_offset += 10
-        screen.blit(font_header.render("[GLOBAL TRAITS MOVING AVERAGE]", True, (142, 142, 147)), (rx_offset, ry_offset))
-        ry_offset += 25
-        screen.blit(font_body.render(f"Avg Energy: {avg_energy:.1f}", True, (255, 255, 255)), (rx_offset, ry_offset))
-        ry_offset += 20
-        screen.blit(font_body.render(f"Avg Intelligence: {avg_intel:.1f} / 100", True, (255, 255, 255)), (rx_offset, ry_offset))
-        ry_offset += 20
-        screen.blit(font_body.render(f"Avg Efficiency: {avg_eff:.1f} / 100", True, (255, 255, 255)), (rx_offset, ry_offset))
-        ry_offset += 35
-        
-        # [POPULATION GRAPH]
-        pygame.draw.line(screen, (44, 44, 46), (rx_offset, ry_offset), (screen_width - 20, ry_offset), 1)
-        ry_offset += 10
-        screen.blit(font_header.render("[POPULATION HISTORICAL TRENDS]", True, (142, 142, 147)), (rx_offset, ry_offset))
-        ry_offset += 25
-        
-        # Draw dynamic pop line graph
-        graph_width = 400
-        graph_height = 120
-        graph_x = rx_offset
-        graph_y = ry_offset
-        
-        # Draw background container for graph
-        pygame.draw.rect(screen, (28, 28, 30), (graph_x, graph_y, graph_width, graph_height))
-        pygame.draw.rect(screen, (44, 44, 46), (graph_x, graph_y, graph_width, graph_height), 1)
-        
-        # Plot coordinates
-        if len(history_prey) > 1:
-            max_val = max(max(history_prey), max(history_predator), max(history_food), 10)
-            
-            # Map index i and value v to pixel coordinates
-            def get_point(i: int, val: int) -> Tuple[int, int]:
-                x_p = graph_x + (i / (max_history_len - 1)) * graph_width
-                y_p = graph_y + graph_height - (val / max_val) * graph_height
-                return int(x_p), int(y_p)
-                
-            points_prey = [get_point(i, v) for i, v in enumerate(history_prey)]
-            points_pred = [get_point(i, v) for i, v in enumerate(history_predator)]
-            points_food = [get_point(i, v) for i, v in enumerate(history_food)]
-            
-            # Draw lines
-            pygame.draw.lines(screen, (10, 132, 255), False, points_prey, 2)
-            pygame.draw.lines(screen, (255, 59, 48), False, points_pred, 2)
-            pygame.draw.lines(screen, (52, 199, 89), False, points_food, 2)
-
-        if extinct:
-            # Draw overlay banner
-            banner_rect = pygame.Rect(grid_width_pixels // 2 - 175, grid_height_pixels // 2 - 40, 350, 80)
-            pygame.draw.rect(screen, (30, 30, 30), banner_rect)
-            pygame.draw.rect(screen, (255, 59, 48), banner_rect, 2)
-            
-            extinct_text1 = font_header.render("ZIZOID EXTINCTION HIT", True, (255, 59, 48))
-            extinct_text2 = font_body.render("Press ESC to Close Window", True, (255, 255, 255))
-            
-            screen.blit(extinct_text1, (grid_width_pixels // 2 - extinct_text1.get_width() // 2, grid_height_pixels // 2 - 25))
-            screen.blit(extinct_text2, (grid_width_pixels // 2 - extinct_text2.get_width() // 2, grid_height_pixels // 2 + 5))
-            
-        pygame.display.flip()
-        
-        # Frame limit clock check
+        graphics.render(tick, world, params, fps, history_prey, history_predator, history_food, extinct)
         clock.tick(int(fps))
         
-    pygame.quit()
+    graphics.close()
     
-    # 4. Display Final Summary Audit of Simulation run
     print("\n============================================================")
     print("             SIMULATION SHUTDOWN COMPLETE")
     print("============================================================")
