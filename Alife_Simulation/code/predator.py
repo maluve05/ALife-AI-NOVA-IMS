@@ -17,6 +17,19 @@ class Predator:
     def get_action_step(self, grid: List[List[int]]) -> Tuple[int, int]:
         rows = len(grid)
         cols = len(grid[0])
+        
+        prey_adjacent = self._find_adjacent_prey_moves(grid, rows, cols)
+        if prey_adjacent:
+            self.chase_state = True
+            return random.choice(prey_adjacent)
+            
+        self.chase_state = False
+        valid_moves = self._find_valid_moves(grid, rows, cols)
+        if valid_moves:
+            return random.choice(valid_moves)
+        return 0, 0
+
+    def _find_adjacent_prey_moves(self, grid: List[List[int]], rows: int, cols: int) -> List[Tuple[int, int]]:
         prey_adjacent = []
         for dy in [-1, 0, 1]:
             for dx in [-1, 0, 1]:
@@ -26,22 +39,17 @@ class Predator:
                 if 0 <= nx < cols and 0 <= ny < rows:
                     if grid[ny][nx] == 3:
                         prey_adjacent.append((dx, dy))
-                        
-        if prey_adjacent:
-            self.chase_state = True
-            return random.choice(prey_adjacent)
-        else:
-            self.chase_state = False
-            valid_moves = []
-            for dy in [-1, 0, 1]:
-                for dx in [-1, 0, 1]:
-                    nx, ny = self.x + dx, self.y + dy
-                    if 0 <= nx < cols and 0 <= ny < rows:
-                        if grid[ny][nx] == 0 or grid[ny][nx] == 2:
-                            valid_moves.append((dx, dy))
-            if valid_moves:
-                return random.choice(valid_moves)
-            return 0, 0
+        return prey_adjacent
+
+    def _find_valid_moves(self, grid: List[List[int]], rows: int, cols: int) -> List[Tuple[int, int]]:
+        valid_moves = []
+        for dy in [-1, 0, 1]:
+            for dx in [-1, 0, 1]:
+                nx, ny = self.x + dx, self.y + dy
+                if 0 <= nx < cols and 0 <= ny < rows:
+                    if grid[ny][nx] == 0 or grid[ny][nx] == 2:
+                        valid_moves.append((dx, dy))
+        return valid_moves
 
     def apply_failed_chase_penalty(self, params: Dict[str, Any]):
         base_cost = params.get("GENERATIONAL_DECAY", 1.0)

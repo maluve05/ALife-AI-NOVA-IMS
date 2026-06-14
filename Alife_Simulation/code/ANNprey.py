@@ -23,6 +23,10 @@ class ANNPrey:
             padding_length = expected_chromosome_length - len(chromosome)
             chromosome = list(chromosome) + [0.0] * padding_length
         
+        offset = self._set_hidden_layer_parameters(chromosome)
+        self._set_output_layer_parameters(chromosome, offset)
+
+    def _set_hidden_layer_parameters(self, chromosome: List[float]) -> int:
         chromosome_index = 0
         for hidden_neuron_idx in range(self.hidden_size):
             for input_idx in range(self.input_size):
@@ -32,7 +36,10 @@ class ANNPrey:
         for hidden_neuron_idx in range(self.hidden_size):
             self.hidden_biases[hidden_neuron_idx] = chromosome[chromosome_index]
             chromosome_index += 1
-            
+        return chromosome_index
+
+    def _set_output_layer_parameters(self, chromosome: List[float], offset: int):
+        chromosome_index = offset
         for output_neuron_idx in range(self.output_size):
             for hidden_neuron_idx in range(self.hidden_size):
                 self.output_weights[output_neuron_idx][hidden_neuron_idx] = chromosome[chromosome_index]
@@ -51,15 +58,6 @@ class ANNPrey:
             chromosome.extend(self.output_weights[output_neuron_idx])
         chromosome.extend(self.output_biases)
         return chromosome
-
-    @staticmethod
-    def _tanh(net_input: float) -> float:
-        if net_input > 20.0:
-            return 1.0
-        elif net_input < -20.0:
-            return -1.0
-        return math.tanh(net_input)
-
     @staticmethod
     def _sigmoid(net_input: float) -> float:
         if net_input > 20.0:
@@ -78,6 +76,11 @@ class ANNPrey:
         return [exp_val / sum_exponential_logits for exp_val in exponential_logits]
 
     def compute(self, input_vector: List[float]) -> List[float]:
+        hidden_activations = self._forward_hidden_layer(input_vector)
+        raw_outputs = self._forward_output_layer(hidden_activations)
+        return self._softmax(raw_outputs)
+
+    def _forward_hidden_layer(self, input_vector: List[float]) -> List[float]:
         hidden_activations = [0.0] * self.hidden_size
         for hidden_neuron_idx in range(self.hidden_size):
             weighted_sum = sum(
@@ -85,7 +88,9 @@ class ANNPrey:
                 for input_idx in range(self.input_size)
             )
             hidden_activations[hidden_neuron_idx] = self._sigmoid(weighted_sum + self.hidden_biases[hidden_neuron_idx])
-            
+        return hidden_activations
+
+    def _forward_output_layer(self, hidden_activations: List[float]) -> List[float]:
         raw_outputs = [0.0] * self.output_size
         for output_neuron_idx in range(self.output_size):
             weighted_sum = sum(
@@ -93,5 +98,4 @@ class ANNPrey:
                 for hidden_neuron_idx in range(self.hidden_size)
             )
             raw_outputs[output_neuron_idx] = weighted_sum + self.output_biases[output_neuron_idx]
-            
-        return self._softmax(raw_outputs)
+        return raw_outputs
