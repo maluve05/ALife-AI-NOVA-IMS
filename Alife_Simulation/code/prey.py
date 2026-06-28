@@ -44,7 +44,7 @@ class Prey:
         initial_energy = parameters.get("INITIAL_ENERGY_PREY", 100.0)
         prey_count = parameters.get("INITIAL_PREY_COUNT", 30)
         predator_count = parameters.get("INITIAL_PREDATOR_COUNT", 5)
-        return initial_energy * (1.0 + prey_count / (predator_count + 1.0))
+        return 0.03125 * initial_energy * (1.0 + prey_count / (predator_count + 1.0))
 
     def get_gaussian_scaling(self, life_expectancy: float) -> float:
         mean_age = life_expectancy / 2.0
