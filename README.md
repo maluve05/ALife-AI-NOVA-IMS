@@ -1,4 +1,4 @@
-# 🧬 Artificial Life & Ecosystem Simulation Engine
+# Artificial Life & Ecosystem Simulation Engine
 
 [![CI](https://github.com/maluve05/ALife-AI-NOVA-IMS/actions/workflows/ci.yml/badge.svg)](https://github.com/maluve05/ALife-AI-NOVA-IMS/actions)
 [![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue.svg)](https://www.python.org/)
@@ -23,7 +23,7 @@ The platform simulates a 2D toroidal-like discrete grid ecosystem featuring auto
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
 ```mermaid
 flowchart TD
@@ -52,7 +52,7 @@ flowchart TD
 
 ---
 
-## 🚀 Quickstart Guide
+## Quickstart Guide
 
 ### 1. Installation
 
@@ -99,7 +99,7 @@ You will be greeted by the interactive startup menu:
 ============================================================
 ```
 
-#### 🎮 In-Game Controls:
+#### In-Game Controls:
 | Key | Action |
 |---|---|
 | <kbd>SPACE</kbd> | Pause / Resume simulation |
@@ -154,7 +154,7 @@ python Alife_Simulation/analyze.py --csv simulation_1.csv --plot telemetry_chart
 
 ---
 
-## 🔬 Mathematical & Evolutionary Formulation
+## Mathematical & Evolutionary Formulation
 
 ### 1. Artificial Neural Network (ANN) Topology
 * **Input Layer ($N=81$)**:
@@ -182,7 +182,7 @@ For the complete derivations, see [docs/mathematical_model.md](docs/mathematical
 
 ---
 
-## 🗂️ Repository Structure
+## Repository Structure
 
 ```
 ALife-AI-NOVA-IMS/
@@ -228,7 +228,7 @@ ALife-AI-NOVA-IMS/
 
 ---
 
-## 🧪 Running the Test Suite
+## Running the Test Suite
 
 Execute the test suite using Python's native test runner or `pytest`:
 
@@ -242,13 +242,13 @@ pytest
 
 ---
 
-## 📚 Documentation Index
+## Documentation Index
 
-* 📐 [Mathematical Model & Equations](docs/mathematical_model.md)
-* 🏛️ [Software Architecture & Design](docs/architecture.md)
-* ⚙️ [Configuration & Parameter Tuning Guide](docs/configuration_guide.md)
-* 📈 [Telemetry Analysis & Data Schemas](docs/analytics.md)
-* 🤝 [Contributing Guidelines](CONTRIBUTING.md)
+* [Mathematical Model & Equations](docs/mathematical_model.md)
+* [Software Architecture & Design](docs/architecture.md)
+* [Configuration & Parameter Tuning Guide](docs/configuration_guide.md)
+* [Telemetry Analysis & Data Schemas](docs/analytics.md)
+* [Contributing Guidelines](CONTRIBUTING.md)
 
 ---
 
