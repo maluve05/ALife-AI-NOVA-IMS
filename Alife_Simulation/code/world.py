@@ -1,9 +1,19 @@
 import random
 import math
 from typing import List, Tuple, Dict, Any, Optional
-from code.prey import Prey
-from code.predator import Predator
-from code.food import Food
+try:
+    from Alife_Simulation.code.prey import Prey
+    from Alife_Simulation.code.predator import Predator
+    from Alife_Simulation.code.food import Food
+except ImportError:
+    try:
+        from code.prey import Prey
+        from code.predator import Predator
+        from code.food import Food
+    except ImportError:
+        from .prey import Prey
+        from .predator import Predator
+        from .food import Food
 
 class World:
     def __init__(self, cols: int, rows: int, params: Dict[str, Any]):

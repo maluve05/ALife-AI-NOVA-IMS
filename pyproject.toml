@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "alife-simulation"
+version = "1.0.0"
+description = "Artificial Life & Artificial Neural Network Simulation Engine for NOVA IMS"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "NOVA IMS ALife Research Team" }
+]
+keywords = [
+    "artificial-life",
+    "evolutionary-computation",
+    "neural-networks",
+    "genetic-algorithms",
+    "predator-prey",
+    "pygame"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Artificial Life",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence"
+]
+dependencies = [
+    "pygame-ce>=2.5.0"
+]
+
+[project.optional-dependencies]
+analytics = [
+    "matplotlib>=3.7.0",
+    "pandas>=2.0.0",
+    "numpy>=1.24.0"
+]
+dev = [
+    "pytest>=7.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.5.0"
+]
+
+[project.scripts]
+alife-sim = "Alife_Simulation.game:main"
+alife-analyze = "Alife_Simulation.analyze:main"
+
+[project.urls]
+Homepage = "https://github.com/maluve05/ALife-AI-NOVA-IMS"
+Repository = "https://github.com/maluve05/ALife-AI-NOVA-IMS"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["Alife_Simulation*"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]

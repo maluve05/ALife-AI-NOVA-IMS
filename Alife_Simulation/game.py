@@ -2,17 +2,37 @@ import os
 import sys
 import json
 import csv
-import pygame
 import random
-from typing import Dict, Any, List, Tuple
+import argparse
+from typing import Dict, Any, List, Tuple, Optional
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Ensure parent directory and current directory are on sys.path for flexible importing
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PARENT_DIR = os.path.dirname(CURRENT_DIR)
+if CURRENT_DIR not in sys.path:
+    sys.path.insert(0, CURRENT_DIR)
+if PARENT_DIR not in sys.path:
+    sys.path.insert(0, PARENT_DIR)
 
-from code.world import World
-from code.prey import Prey
-from code.predator import Predator
-from code.food import Food
-from code.graphics import SimulationGraphics
+try:
+    from Alife_Simulation.code.world import World
+    from Alife_Simulation.code.prey import Prey
+    from Alife_Simulation.code.predator import Predator
+    from Alife_Simulation.code.food import Food
+    from Alife_Simulation.code.graphics import SimulationGraphics
+except ImportError:
+    try:
+        from code.world import World
+        from code.prey import Prey
+        from code.predator import Predator
+        from code.food import Food
+        from code.graphics import SimulationGraphics
+    except ImportError:
+        from .code.world import World
+        from .code.prey import Prey
+        from .code.predator import Predator
+        from .code.food import Food
+        from .code.graphics import SimulationGraphics
 
 DEFAULT_PARAMETERS: Dict[str, Any] = {
     "INITIAL_ENERGY_PREY": 150,
@@ -33,13 +53,14 @@ DEFAULT_PARAMETERS: Dict[str, Any] = {
     "PREDATOR_NAME": "Wsiloid"
 }
 
-def _load_state_from_json(file_path: str) -> Tuple[World, Dict[str, Any], int]:
+def load_state_from_json(file_path: str) -> Tuple[World, Dict[str, Any], int]:
+    """Load a world state and configuration from a JSON snapshot file."""
     with open(file_path, 'r') as f:
         state_data = json.load(f)
     
     params = state_data.get("parameters", DEFAULT_PARAMETERS.copy())
-    cols = params.get("GRID_WIDTH", 15)
-    rows = params.get("GRID_HEIGHT", 20)
+    cols = params.get("GRID_WIDTH", 20)
+    rows = params.get("GRID_HEIGHT", 25)
     
     world = World(cols, rows, params)
     world.prey_list.clear()
@@ -62,7 +83,7 @@ def _load_state_from_json(file_path: str) -> Tuple[World, Dict[str, Any], int]:
 
 def _parse_prey_state(world: World, prey_data: List[Dict[str, Any]]):
     for p_data in prey_data:
-        p = Prey(p_data["id"], p_data["name"], p_data["x"], p_data["y"], p_data["chromosome"])
+        p = Prey(p_data["id"], p_data["name"], p_data["x"], p_data["y"], p_data.get("chromosome"))
         p.energy = p_data["energy"]
         p.age = p_data["age"]
         p.gestation_timer = p_data.get("gestation_timer", 0)
@@ -85,7 +106,7 @@ def _parse_predator_state(world: World, predator_data: List[Dict[str, Any]]):
 
 def _parse_food_state(world: World, food_data: List[Dict[str, Any]], params: Dict[str, Any]):
     for f_data in food_data:
-        f_obj = Food(f_data["x"], f_data["y"], params.get("ENERGY_FROM_CONSUMING_FOOD", 40.0))
+        f_obj = Food(f_data["x"], f_data["y"], params.get("ENERGY_FROM_CONSUMING_FOOD", 60.0))
         f_obj.ticks_unstepped = f_data.get("ticks_unstepped", 10)
         world.food_list.append(f_obj)
 
@@ -97,7 +118,6 @@ def _configure_custom_simulation() -> Tuple[World, Dict[str, Any], int]:
     
     params["PREY_NAME"] = input("Enter name for Prey (default: Zizoid): ").strip() or "Zizoid"
     params["PREDATOR_NAME"] = input("Enter name for Predator (default: Wsiloid): ").strip() or "Wsiloid"
-    
     _prompt_simulation_parameters(params)
     
     total_cells = params["GRID_WIDTH"] * params["GRID_HEIGHT"]
@@ -110,8 +130,8 @@ def _configure_custom_simulation() -> Tuple[World, Dict[str, Any], int]:
 def _prompt_grid_dimensions(params: Dict[str, Any]):
     while True:
         try:
-            width = int(input("Enter Grid Width (default 15): ") or "15")
-            height = int(input("Enter Grid Height (default 20): ") or "20")
+            width = int(input("Enter Grid Width (default 20): ") or "20")
+            height = int(input("Enter Grid Height (default 25): ") or "25")
             total_cells = width * height
             if total_cells < 300:
                 print(f"Error: Grid yields {total_cells} cells. Minimum 300 cells is required. Re-enter.")
@@ -124,13 +144,13 @@ def _prompt_grid_dimensions(params: Dict[str, Any]):
 
 def _prompt_simulation_parameters(params: Dict[str, Any]):
     try:
-        params["INITIAL_ENERGY_PREY"] = float(input("Enter starting Prey (Zizoid) energy (default 100): ") or "100")
+        params["INITIAL_ENERGY_PREY"] = float(input("Enter starting Prey (Zizoid) energy (default 150): ") or "150")
         params["MUTATION_RATE"] = float(input("Enter Mutation Rate (0.0 to 1.0, default 0.05): ") or "0.05")
-        params["P_REPRODUCTION"] = float(input("Enter Prob(reproduction) (0.0 to 1.0, default 0.50): ") or "0.50")
+        params["P_REPRODUCTION"] = float(input("Enter Prob(reproduction) (0.0 to 1.0, default 0.75): ") or "0.75")
         params["ENERGY_FROM_PREDATOR_CATCH"] = float(input("Enter Predator catch energy reward (default 10): ") or "10")
         params["ENERGY_REPRODUCTION_COST"] = float(input("Enter energy cost factor spent on reproduction (default 3): ") or "3")
         params["MAX_PREY_POPULATION"] = int(input("Enter maximum number of Prey (default 300): ") or "300")
-        params["ENERGY_FROM_CONSUMING_FOOD"] = float(input("Enter Food energy value (default 40): ") or "40")
+        params["ENERGY_FROM_CONSUMING_FOOD"] = float(input("Enter Food energy value (default 60): ") or "60")
         params["FRAME_RATE_LIMIT"] = float(input("Enter initial speed in FPS (default 1.0): ") or "1.0")
     except ValueError:
         print("Invalid value entered. Reverting attributes to defaults.")
@@ -140,7 +160,7 @@ def _prompt_agent_populations(params: Dict[str, Any], max_agents: int):
     while True:
         try:
             prey_count = int(input(f"Enter initial number of {params['PREY_NAME']}s (default {params['INITIAL_PREY_COUNT']}): ") or str(params['INITIAL_PREY_COUNT']))
-            pred_count = int(input(f"Enter initial number of {params['PREDATOR_NAME']}s (default 5): ") or "5")
+            pred_count = int(input(f"Enter initial number of {params['PREDATOR_NAME']}s (default {params['INITIAL_PREDATOR_COUNT']}): ") or str(params['INITIAL_PREDATOR_COUNT']))
             total_agents = prey_count + pred_count
             if total_agents > max_agents:
                 print(f"Error: Total agents ({total_agents}) exceeds maximum capacity of {max_agents} for the grid. Re-enter.")
@@ -171,7 +191,7 @@ def boot_menu() -> Tuple[World, Dict[str, Any], int]:
                 if not os.path.exists(file_path):
                     print(f"Error: File '{file_path}' not found. Try again.")
                     continue
-                return _load_state_from_json(file_path)
+                return load_state_from_json(file_path)
             elif choice == "2":
                 params = DEFAULT_PARAMETERS.copy()
                 print(f"Starting default simulation ({params['GRID_WIDTH']}x{params['GRID_HEIGHT']} grid, {params['INITIAL_PREY_COUNT']} {params['PREY_NAME']}s, {params['INITIAL_PREDATOR_COUNT']} {params['PREDATOR_NAME']}s)...")
@@ -181,10 +201,14 @@ def boot_menu() -> Tuple[World, Dict[str, Any], int]:
                 return _configure_custom_simulation()
             else:
                 print("Invalid choice. Please select 1, 2, or 3.")
+        except (EOFError, KeyboardInterrupt):
+            print("\nExiting boot menu.")
+            sys.exit(0)
         except Exception as e:
             print(f"Error handling menu setup: {e}. Try again.")
 
 def save_state_to_json(world: World, params: Dict[str, Any], tick: int, file_path: str = "simulation_state.json"):
+    """Save the complete world state, agents, and parameters into a JSON file."""
     state = {
         "current_tick": tick,
         "next_prey_id": world.next_prey_id,
@@ -232,11 +256,20 @@ def save_state_to_json(world: World, params: Dict[str, Any], tick: int, file_pat
             } for f in world.food_list
         ]
     }
+    # Ensure directory exists if file_path includes directories
+    target_dir = os.path.dirname(file_path)
+    if target_dir and not os.path.exists(target_dir):
+        os.makedirs(target_dir, exist_ok=True)
+        
     with open(file_path, 'w') as f:
         json.dump(state, f, indent=2)
 
 def log_to_csv(tick: int, world: World, params: Dict[str, Any], file_path: str = "simulation_1.csv"):
+    """Append current step metrics to CSV log file."""
     file_exists = os.path.exists(file_path)
+    target_dir = os.path.dirname(file_path)
+    if target_dir and not os.path.exists(target_dir):
+        os.makedirs(target_dir, exist_ok=True)
     
     avg_energy = sum(p.energy for p in world.prey_list) / max(1, len(world.prey_list))
     avg_intel = sum(p.get_intelligence() for p in world.prey_list) / max(1, len(world.prey_list))
@@ -267,7 +300,9 @@ def log_to_csv(tick: int, world: World, params: Dict[str, Any], file_path: str =
             ])
         writer.writerow(row)
 
-def _handle_events(fps: float, paused: bool, world: World, params: Dict[str, Any], tick: int) -> Tuple[bool, bool, float]:
+def _handle_events(fps: float, paused: bool, world: World, params: Dict[str, Any], tick: int,
+                   json_path: str = "simulation_state.json") -> Tuple[bool, bool, float]:
+    import pygame
     running = True
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -285,12 +320,49 @@ def _handle_events(fps: float, paused: bool, world: World, params: Dict[str, Any
                 fps = max(0.2, fps - 0.2)
                 print(f"Speed decreased to {fps} FPS/TPS.")
             elif event.key == pygame.K_s:
-                save_state_to_json(world, params, tick)
-                print(f"Simulation state checkpoint saved at tick {tick}.")
+                save_state_to_json(world, params, tick, json_path)
+                print(f"Simulation state checkpoint saved at tick {tick} to '{json_path}'.")
     return running, paused, fps
 
-def main():
-    world, params, tick = boot_menu()
+def run_headless_simulation(world: World, params: Dict[str, Any], start_tick: int = 0,
+                            max_ticks: int = 1000, csv_path: str = "simulation_1.csv",
+                            json_path: str = "simulation_state.json", log_interval: Optional[int] = None) -> int:
+    """Execute simulation without GUI for batch or automated experiments."""
+    interval = log_interval or params.get("LOGGING_INTERVAL", 15)
+    tick = start_tick
+    target_tick = start_tick + max_ticks
+    
+    print(f"\n[Headless Mode] Starting simulation from tick {tick} to {target_tick}...")
+    print(f"Grid: {world.cols}x{world.rows} | Initial Prey: {len(world.prey_list)} | Initial Predators: {len(world.predator_list)} | Food: {len(world.food_list)}")
+    
+    # Initial log
+    log_to_csv(tick, world, params, csv_path)
+    
+    while tick < target_tick:
+        if len(world.prey_list) == 0:
+            print(f"\n[Extinction] All {params['PREY_NAME']}s extinct at tick {tick}.")
+            break
+            
+        world.update()
+        tick += 1
+        
+        if tick % interval == 0:
+            log_to_csv(tick, world, params, csv_path)
+            save_state_to_json(world, params, tick, json_path)
+            avg_fit = sum(p.get_fitness() for p in world.prey_list) / max(1, len(world.prey_list))
+            print(f"Tick {tick:5d} | Prey: {len(world.prey_list):3d} | Predators: {len(world.predator_list):2d} | Food: {len(world.food_list):3d} | AvgFit: {avg_fit:6.1f}")
+
+    # Final state checkpoint & log
+    log_to_csv(tick, world, params, csv_path)
+    save_state_to_json(world, params, tick, json_path)
+    _print_shutdown_summary(tick, csv_path)
+    return tick
+
+def run_gui_simulation(world: World, params: Dict[str, Any], start_tick: int = 0,
+                       max_ticks: Optional[int] = None, csv_path: str = "simulation_1.csv",
+                       json_path: str = "simulation_state.json"):
+    """Execute simulation with interactive Pygame GUI dashboard."""
+    import pygame
     graphics, history_prey, history_predator, history_food, max_history_len = _initialize_simulation_components(world, params)
     
     clock = pygame.time.Clock()
@@ -298,22 +370,41 @@ def main():
     fps = params.get("FRAME_RATE_LIMIT", 1.0)
     paused = False
     extinct = False
+    tick = start_tick
+    target_tick = (start_tick + max_ticks) if max_ticks else None
     
     while running:
-        running, paused, fps = _handle_events(fps, paused, world, params, tick)
+        running, paused, fps = _handle_events(fps, paused, world, params, tick, json_path)
         if not running:
             break
             
-        extinct = _handle_extinction_check(world, tick, extinct)
+        extinct = _handle_extinction_check(world, tick, extinct, params)
             
         if not paused and not extinct:
-            tick = _update_simulation_step(world, tick, params, history_prey, history_predator, history_food, max_history_len)
+            world.update()
+            tick += 1
+            
+            history_prey.append(len(world.prey_list))
+            history_predator.append(len(world.predator_list))
+            history_food.append(len(world.food_list))
+            if len(history_prey) > max_history_len:
+                history_prey.pop(0)
+                history_predator.pop(0)
+                history_food.pop(0)
+                
+            if tick % params.get("LOGGING_INTERVAL", 15) == 0:
+                log_to_csv(tick, world, params, csv_path)
+                save_state_to_json(world, params, tick, json_path)
+                
+            if target_tick and tick >= target_tick:
+                print(f"\nTarget tick count of {target_tick} reached.")
+                break
                 
         graphics.render(tick, world, params, fps, history_prey, history_predator, history_food, extinct)
-        clock.tick(int(fps))
+        clock.tick(max(1, int(fps)))
         
     graphics.close()
-    _print_shutdown_summary(tick)
+    _print_shutdown_summary(tick, csv_path)
 
 def _initialize_simulation_components(world: World, params: Dict[str, Any]) -> Tuple[SimulationGraphics, List[int], List[int], List[int], int]:
     graphics = SimulationGraphics(world.cols, world.rows, params)
@@ -332,10 +423,11 @@ def _initialize_simulation_components(world: World, params: Dict[str, Any]) -> T
     
     return graphics, history_prey, history_predator, history_food, max_history_len
 
-def _handle_extinction_check(world: World, tick: int, extinct: bool) -> bool:
+def _handle_extinction_check(world: World, tick: int, extinct: bool, params: Dict[str, Any]) -> bool:
     if len(world.prey_list) == 0 and not extinct:
+        prey_name = params.get("PREY_NAME", "Zizoid")
         print("\n============================================================")
-        print("             ZIZOID EXTINCTION CONSTRAINTS HIT!")
+        print(f"             {prey_name.upper()} EXTINCTION CONSTRAINTS HIT!")
         print("============================================================")
         print(f"Final Tick Duration: {tick} Epochs")
         print("Shutting down simulation environment updates.")
@@ -343,30 +435,99 @@ def _handle_extinction_check(world: World, tick: int, extinct: bool) -> bool:
         return True
     return extinct
 
-def _update_simulation_step(world: World, tick: int, params: Dict[str, Any], history_prey: List[int], history_predator: List[int], history_food: List[int], max_history_len: int) -> int:
-    world.update()
-    tick += 1
-    
-    history_prey.append(len(world.prey_list))
-    history_predator.append(len(world.predator_list))
-    history_food.append(len(world.food_list))
-    if len(history_prey) > max_history_len:
-        history_prey.pop(0)
-        history_predator.pop(0)
-        history_food.pop(0)
-        
-    if tick % params.get("LOGGING_INTERVAL", 15) == 0:
-        log_to_csv(tick, world, params)
-        save_state_to_json(world, params, tick)
-    return tick
-
-def _print_shutdown_summary(tick: int):
+def _print_shutdown_summary(tick: int, csv_path: str = "simulation_1.csv"):
     print("\n============================================================")
     print("             SIMULATION SHUTDOWN COMPLETE")
     print("============================================================")
     print(f"Elapsed Time steps: {tick}")
-    print(f"Metrics logged to 'simulation_1.csv'.")
+    print(f"Metrics logged to '{csv_path}'.")
     print("============================================================")
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Artificial Life & ANN Ecosystem Simulation Engine (NOVA IMS)"
+    )
+    parser.add_argument("--headless", "-H", action="store_true", help="Run simulation in headless mode (no Pygame window)")
+    parser.add_argument("--ticks", "-t", type=int, default=None, help="Maximum number of ticks to simulate")
+    parser.add_argument("--load", "-l", type=str, default=None, help="Load simulation state from JSON checkpoint")
+    parser.add_argument("--config", "-c", type=str, default=None, help="Load simulation parameters from JSON config file")
+    parser.add_argument("--seed", "-s", type=int, default=None, help="Set random seed for deterministic execution")
+    parser.add_argument("--csv", type=str, default="simulation_1.csv", help="Path to output CSV log file")
+    parser.add_argument("--json", type=str, default="simulation_state.json", help="Path to output JSON checkpoint file")
+    parser.add_argument("--fps", type=float, default=None, help="Target FPS limit for GUI mode")
+    parser.add_argument("--grid-width", type=int, default=None, help="Override grid width")
+    parser.add_argument("--grid-height", type=int, default=None, help="Override grid height")
+    parser.add_argument("--prey-count", type=int, default=None, help="Override starting Prey population")
+    parser.add_argument("--predator-count", type=int, default=None, help="Override starting Predator population")
+    parser.add_argument("--mutation-rate", type=float, default=None, help="Override mutation rate (0.0 - 1.0)")
+    parser.add_argument("--log-interval", type=int, default=None, help="Metrics logging interval in ticks")
+    return parser.parse_args()
+
+def main():
+    args = parse_args()
+    
+    if args.seed is not None:
+        random.seed(args.seed)
+        print(f"Random seed set to {args.seed}.")
+
+    # Parameter loading & overrides
+    params = DEFAULT_PARAMETERS.copy()
+    
+    if args.config:
+        if os.path.exists(args.config):
+            with open(args.config, 'r') as f:
+                custom_cfg = json.load(f)
+                params.update(custom_cfg)
+            print(f"Configuration overrides loaded from '{args.config}'.")
+        else:
+            print(f"Warning: Config file '{args.config}' not found. Using defaults.")
+            
+    if args.grid_width:
+        params["GRID_WIDTH"] = args.grid_width
+    if args.grid_height:
+        params["GRID_HEIGHT"] = args.grid_height
+    if args.prey_count:
+        params["INITIAL_PREY_COUNT"] = args.prey_count
+    if args.predator_count:
+        params["INITIAL_PREDATOR_COUNT"] = args.predator_count
+    if args.mutation_rate is not None:
+        params["MUTATION_RATE"] = args.mutation_rate
+    if args.fps is not None:
+        params["FRAME_RATE_LIMIT"] = args.fps
+    if args.log_interval:
+        params["LOGGING_INTERVAL"] = args.log_interval
+
+    # Initialization
+    if args.load:
+        world, params, start_tick = load_state_from_json(args.load)
+    elif args.headless or any([args.ticks, args.config, args.grid_width, args.grid_height, args.prey_count]):
+        world = World(params["GRID_WIDTH"], params["GRID_HEIGHT"], params)
+        start_tick = 0
+    else:
+        # Default interactive menu
+        world, params, start_tick = boot_menu()
+
+    # Execution Mode
+    if args.headless:
+        ticks_to_run = args.ticks if args.ticks is not None else 500
+        run_headless_simulation(
+            world=world,
+            params=params,
+            start_tick=start_tick,
+            max_ticks=ticks_to_run,
+            csv_path=args.csv,
+            json_path=args.json,
+            log_interval=args.log_interval
+        )
+    else:
+        run_gui_simulation(
+            world=world,
+            params=params,
+            start_tick=start_tick,
+            max_ticks=args.ticks,
+            csv_path=args.csv,
+            json_path=args.json
+        )
 
 if __name__ == "__main__":
     main()

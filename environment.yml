@@ -1,0 +1,13 @@
+name: alife-sim
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python>=3.10
+  - pip
+  - matplotlib
+  - pandas
+  - numpy
+  - pytest
+  - pip:
+      - pygame-ce>=2.5.0

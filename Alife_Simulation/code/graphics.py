@@ -1,6 +1,12 @@
 import pygame
 from typing import Dict, Any, List, Tuple
-from code.world import World
+try:
+    from Alife_Simulation.code.world import World
+except ImportError:
+    try:
+        from code.world import World
+    except ImportError:
+        from .world import World
 
 class SimulationGraphics:
     def __init__(self, cols: int, rows: int, params: Dict[str, Any]):

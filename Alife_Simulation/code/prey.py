@@ -1,7 +1,13 @@
 import math
 import random
 from typing import List, Tuple, Dict, Any, Optional
-from code.ANNprey import ANNPrey
+try:
+    from Alife_Simulation.code.ANNprey import ANNPrey
+except ImportError:
+    try:
+        from code.ANNprey import ANNPrey
+    except ImportError:
+        from .ANNprey import ANNPrey
 
 class Prey:
     def __init__(self, prey_id: int, name: str, x: int, y: int, chromosome: Optional[List[float]] = None):
