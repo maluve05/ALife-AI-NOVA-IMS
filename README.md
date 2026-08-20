@@ -11,15 +11,15 @@ The platform simulates a 2D toroidal-like discrete grid ecosystem featuring auto
 
 ---
 
-## 🌟 Key Highlights
+## Key Highlights
 
-* **🧠 Neuro-Evolutionary Agents**: Prey entities possess an onboard Artificial Neural Network (81-dimensional spatial vision + hunger input $\to$ 8 hidden neurons $\to$ 6 softmax movement logits) encoded directly into a 712-element genetic chromosome.
-* **🧬 Multi-Strategy Genetic Algorithms**: Dynamic mating pairs engage in crossover operations using 3 distinct recombination strategies (1-point, reverse 1-point, and 5-block ANN layer recombination) alongside Gaussian gene mutation with biological trait clamping.
-* **⚡ Dual Execution Modes**:
+* **Neuro-Evolutionary Agents**: Prey entities possess an onboard Artificial Neural Network (81-dimensional spatial vision + hunger input $\to$ 8 hidden neurons $\to$ 6 softmax movement logits) encoded directly into a 712-element genetic chromosome.
+* **Multi-Strategy Genetic Algorithms**: Dynamic mating pairs engage in crossover operations using 3 distinct recombination strategies (1-point, reverse 1-point, and 5-block ANN layer recombination) alongside Gaussian gene mutation with biological trait clamping.
+* **Dual Execution Modes**:
   * **Interactive GUI Mode**: Real-time Pygame dashboard with dynamic graphs, telemetry statistics, Hall of Fame elite trackers, mortality monitoring, and interactive keyboard speed controls.
   * **High-Performance Headless CLI Mode**: Headless runner for batch simulations, automated benchmarking, parameter grid searches, and CI/CD pipelines.
-* **📊 Comprehensive Telemetry & Analytics**: Native CSV time-series logging (`simulation_1.csv`), complete JSON world checkpoint serialization (`simulation_state.json`), and automated analytics suite (`analyze.py`) with phase-portrait graphing.
-* **🧪 100% Test Coverage**: Complete automated unit and integration test suite with CI validation across Windows, macOS, and Linux on Python 3.10+.
+* **Comprehensive Telemetry & Analytics**: Native CSV time-series logging (`simulation_1.csv`), complete JSON world checkpoint serialization (`simulation_state.json`), and automated analytics suite (`analyze.py`) with phase-portrait graphing.
+* **100% Test Coverage**: Complete automated unit and integration test suite with CI validation across Windows, macOS, and Linux on Python 3.10+.
 
 ---
 
