@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Framework: Pygame](https://img.shields.io/badge/GUI-Pygame--CE-orange.svg)](https://pyga.me/)
 
-An advanced **Artificial Life (ALife) & Artificial Neural Network (ANN) Evolutionary Simulation Platform** developed for academic research and computational biology at **NOVA Information Management School (NOVA IMS)**.
+I modified the repo and its code for public release, however most of the logic in the original program remained intaact. An advanced **Artificial Life (ALife) & Artificial Neural Network (ANN) Evolutionary Simulation Platform** developed for academic research and computational biology at **NOVA Information Management School (NOVA IMS)**.
 
 The platform simulates a 2D toroidal-like discrete grid ecosystem featuring autonomous agents (**Prey / "Zizoid"**, **Predators / "Wsiloid"**, and **Food Resources**) governed by neuro-evolution, genetic crossover strategies, Gaussian mutation, metabolic energy budgets, age-dependent vitality scaling, and multi-tier spatial vision.
 
